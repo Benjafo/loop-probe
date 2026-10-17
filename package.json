@@ -1,0 +1,26 @@
+{
+  "name": "agentic-coding-repository-template",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Template repo for the Issue-to-PR loop. /bootstrap replaces the placeholder scripts with the chosen framework and test runner.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude='tools/**' --test-coverage-exclude='test/**' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info",
+    "coverage:patch": "node tools/patch-coverage.mjs",
+    "build": "echo \"no build step yet: /bootstrap wires one\"",
+    "dev": "echo \"no dev server yet: /bootstrap wires one\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "typescript": "^5.7.2"
+  }
+}

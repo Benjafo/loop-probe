@@ -1,0 +1,1 @@
+Screenshots committed by implementing runs, one folder per issue (`issue-N/ac-2.png`), embedded in the PR body by raw URL on the branch. Not code: excluded from lint and coverage. Growth here is a release-time chore.

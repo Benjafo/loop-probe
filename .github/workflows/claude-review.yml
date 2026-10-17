@@ -1,0 +1,131 @@
+# Independent Code Review: a fresh session, read-only tools plus `gh pr comment`,
+# Sonnet with a low max-turns. Its instructions are .claude/REVIEW.md, read from
+# a checkout of development (never the PR head), so the run it reviews cannot
+# rewrite its reviewer's instructions.
+#
+# Triggers: a PR opened or marked ready against development (not a draft, head
+# not `bootstrap`, head repo is this repo, not Dependabot), or an
+# `@claude review` comment by a human on a PR. Not on synchronize: a revision
+# push doesn't bill a second review; ask with @claude review.
+name: claude-review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+# Own group: reviews never queue behind builds.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+env:
+  CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1"
+  GH_REPO: ${{ github.repository }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  review:
+    if: >-
+      (github.event_name == 'pull_request'
+        && github.event.pull_request.base.ref == 'development'
+        && github.event.pull_request.draft == false
+        && github.event.pull_request.head.ref != 'bootstrap'
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && github.actor != 'dependabot[bot]')
+      || (github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.type == 'User'
+        && contains(github.event.comment.body, '@claude review'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.LOOP_APP_ID }}
+          private-key: ${{ secrets.LOOP_APP_PRIVATE_KEY }}
+
+      # The comment payload carries no base ref or draft flag, so the rest of
+      # the gate runs here for that path. Also resolves risk from both the PR's
+      # labels and the issue's, at step time (gh applies --label after the PR
+      # exists, so the opened payload has no labels).
+      - name: Gate and resolve the PR
+        id: gate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: |
+          gh pr view "$PR_NUMBER" --json number,baseRefName,headRefName,isDraft,isCrossRepository,author,labels,body > pr.json
+          BASE="$(jq -r .baseRefName pr.json)"
+          HEAD="$(jq -r .headRefName pr.json)"
+          DRAFT="$(jq -r .isDraft pr.json)"
+          CROSS="$(jq -r .isCrossRepository pr.json)"
+          AUTHOR="$(jq -r .author.login pr.json)"
+          GO=true
+          [ "$BASE" = "development" ] || { echo "base is $BASE: skip"; GO=false; }
+          [ "$DRAFT" = "false" ] || { echo "draft: skip"; GO=false; }
+          [ "$HEAD" != "bootstrap" ] || { echo "bootstrap PR: skip"; GO=false; }
+          [ "$CROSS" = "false" ] || { echo "fork PR: skip"; GO=false; }
+          [ "$AUTHOR" != "dependabot" ] && [ "$AUTHOR" != "app/dependabot" ] || { echo "dependabot: skip"; GO=false; }
+
+          RISK=false
+          jq -e '[.labels[].name] | index("risk:high")' pr.json >/dev/null && RISK=true
+          ISSUE="$(jq -r .body pr.json | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)"
+          if [ -n "$ISSUE" ]; then
+            gh issue view "$ISSUE" --json labels --jq '[.labels[].name] | index("risk:high")' | grep -qv null && RISK=true
+          fi
+          echo "go=$GO risk_high=$RISK issue=${ISSUE:-none} head=$HEAD"
+          {
+            echo "go=$GO"
+            echo "risk_high=$RISK"
+            echo "issue=$ISSUE"
+            echo "head=$HEAD"
+          } >> "$GITHUB_OUTPUT"
+          rm pr.json
+
+      - name: Checkout development (not the PR head)
+        if: steps.gate.outputs.go == 'true'
+        uses: actions/checkout@v5
+        with:
+          ref: development
+          fetch-depth: 1
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Resolve bot identity
+        if: steps.gate.outputs.go == 'true'
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: bash .github/scripts/bot-identity.sh
+
+      - name: Review
+        if: steps.gate.outputs.go == 'true'
+        id: claude
+        timeout-minutes: 20
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            You are the independent reviewer for pull request #${{ github.event.pull_request.number || github.event.issue.number }} in ${{ github.repository }}.
+            The PR closes issue #${{ steps.gate.outputs.issue || 'unknown' }}. Risk tier: ${{ steps.gate.outputs.risk_high == 'true' && 'risk:high (use the security variant)' || 'normal' }}.
+            Read .claude/REVIEW.md and follow it exactly. Agent mode injects no PR or issue data: fetch the diff and the issue yourself with gh, as REVIEW.md says, before anything else.
+            Your only write is `gh pr comment` on this PR. Never edit files, never push, never approve or merge.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          settings: .claude/review-settings.json
+          bot_id: ${{ steps.bot.outputs.bot_id }}
+          bot_name: ${{ steps.bot.outputs.bot_name }}
+          # The PR is opened by the app, so the triggering actor is its bot.
+          allowed_bots: ${{ format('{0}[bot]', vars.LOOP_APP_SLUG) }}
+          claude_args: >-
+            --model sonnet
+            --effort medium
+            --max-turns 30

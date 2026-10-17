@@ -1,0 +1,1 @@
+Path-scoped conventions go here as `*.md` files, loaded only when a run touches the paths they name; `CLAUDE.md` stays short and holds what applies everywhere. /bootstrap adds the first ones; implementing runs may propose more in a PR under "What I had to guess".

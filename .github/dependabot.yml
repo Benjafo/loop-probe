@@ -1,0 +1,23 @@
+# Dependabot PRs target development, like every other change, and go through
+# CI there. They get no Claude review (the review workflow gates on actor):
+# a dependency bump is read by me.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: development
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    labels: [dependencies]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: development
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies]

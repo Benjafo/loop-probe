@@ -1,0 +1,147 @@
+# Build workflow: a `claude` label on an issue starts a fresh Claude Code run
+# that opens a PR against development.
+#
+# Gates (job-level `if`, the harness's defense against prompt injection reaching
+# a token with write permissions):
+#   - the label added is exactly `claude` (a prompt input puts the Action in
+#     agent mode, where label_trigger is never consulted; without this gate
+#     every attribute label /dispatch adds would queue a full run)
+#   - the issue author is the repo owner or the app (anyone can open an issue
+#     on a public repo, and edit its body between labeling and run start)
+#   - the actor who added the label is the repo owner
+#
+# Secrets (set by setup.sh): CLAUDE_CODE_OAUTH_TOKEN, LOOP_APP_ID,
+# LOOP_APP_PRIVATE_KEY. Variable: LOOP_APP_SLUG (the app's slug; its bot login
+# is "<slug>[bot]").
+name: claude-issues
+
+on:
+  issues:
+    types: [labeled]
+
+# One build at a time. Without `queue: max` GitHub keeps one pending run and a
+# third label cancels the second; with it up to 100 wait in arrival order.
+concurrency:
+  group: claude-build
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  CLAUDE_BRANCH: claude/issue-${{ github.event.issue.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+  CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1"
+  GH_REPO: ${{ github.repository }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  implement:
+    if: >-
+      github.event.label.name == 'claude'
+      && (github.event.issue.user.login == github.repository_owner
+          || github.event.issue.user.login == format('{0}[bot]', vars.LOOP_APP_SLUG))
+      && github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.LOOP_APP_ID }}
+          private-key: ${{ secrets.LOOP_APP_PRIVATE_KEY }}
+
+      - name: Checkout development
+        uses: actions/checkout@v5
+        with:
+          ref: development
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Resolve bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: bash .github/scripts/bot-identity.sh
+
+      - name: Route attribute labels to flags
+        id: router
+        env:
+          LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+        run: bash .github/scripts/router.sh
+
+      - name: Close any earlier PR for this issue
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          BOT_NAME: ${{ steps.bot.outputs.bot_name }}
+        run: bash .github/scripts/close-superseded.sh
+
+      - name: Build the run prompt
+        id: prompt
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TEMPLATE: .claude/prompts/implement.md
+          OWNER: ${{ github.repository_owner }}
+          BOT_NAME: ${{ steps.bot.outputs.bot_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          MODEL: ${{ steps.router.outputs.model }}
+          EFFORT: ${{ steps.router.outputs.effort }}
+          ADVISOR: ${{ steps.router.outputs.advisor }}
+          RISK_HIGH: ${{ steps.router.outputs.risk_high }}
+          ATTR_LABELS: ${{ steps.router.outputs.attr_labels }}
+        run: bash .github/scripts/build-prompt.sh
+
+      - name: Create the work branch
+        run: git checkout -b "$CLAUDE_BRANCH"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Step-level timeout, not job-level: a job timeout cancels the job and
+      # leaves the always() step running in a cancellation window. Stays under
+      # 50 minutes because the app token lasts an hour.
+      - name: Run Claude Code
+        id: claude
+        timeout-minutes: 45
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: ${{ steps.prompt.outputs.text }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          settings: .claude/settings.json
+          base_branch: development
+          bot_id: ${{ steps.bot.outputs.bot_id }}
+          bot_name: ${{ steps.bot.outputs.bot_name }}
+          claude_args: >-
+            --max-turns 150
+            ${{ steps.router.outputs.claude_args }}
+
+      # A fresh token: the Action revokes the one it was given as its last step.
+      - name: Mint token for the after-run step
+        id: after-token
+        if: always()
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.LOOP_APP_ID }}
+          private-key: ${{ secrets.LOOP_APP_PRIVATE_KEY }}
+
+      - name: After run (failure trail, labels)
+        if: always()
+        env:
+          GH_TOKEN: ${{ steps.after-token.outputs.token }}
+          MODE: build
+          OUTCOME: ${{ steps.claude.outcome }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ATTR_LABELS: ${{ steps.router.outputs.attr_labels }}
+        run: bash .github/scripts/after-run.sh

@@ -1,0 +1,44 @@
+{
+  "$comment": "Allowed tools for implementing and revision runs (claude-issues.yml, claude.yml), passed to the Action's `settings` input. In agent mode the Action grants no file tools, so Read/Edit/Write are listed. The list covers what .claude/prompts/*.md asks for and nothing else; /bootstrap adds the dev-server, migrate, seed, and screenshot commands by name when they exist. Any change here is an always-read PR.",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "MultiEdit",
+      "Write",
+      "Bash(git:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm ci)",
+      "Bash(npm install:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run coverage:patch:*)",
+      "Bash(npm run build:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue comment:*)"
+    ],
+    "deny": [
+      "WebFetch",
+      "WebSearch",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr review:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(gh label:*)",
+      "Bash(gh secret:*)",
+      "Bash(gh variable:*)",
+      "Bash(gh api:*)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"
+  }
+}

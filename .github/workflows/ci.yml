@@ -1,0 +1,58 @@
+# CI: lint (with test-integrity rules), typecheck, tests with coverage, patch
+# coverage on changed lines, build. The job is named `ci` because branch
+# protection on development requires a check with exactly that name.
+#
+# /bootstrap wires the chosen framework and test runner into the npm scripts
+# this calls, and adds any DB service, env vars, migrations, and seed steps.
+# It does not add steps here that the run prompt doesn't also know about.
+name: ci
+
+on:
+  pull_request:
+    branches: [development, production]
+  push:
+    branches: [development, production]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # patch coverage diffs against the base branch
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint (includes test-integrity rules)
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test with coverage
+        run: |
+          mkdir -p coverage
+          npm run test:coverage
+
+      - name: Patch coverage on changed lines
+        if: github.event_name == 'pull_request'
+        env:
+          PATCH_COVERAGE_BASE: origin/${{ github.base_ref }}
+          PATCH_COVERAGE_MIN: "80"
+          PATCH_COVERAGE_INCLUDE: src/
+        run: npm run coverage:patch
+
+      - name: Build
+        run: npm run build

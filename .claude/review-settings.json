@@ -1,0 +1,33 @@
+{
+  "$comment": "Allowed tools for the independent reviewer (claude-review.yml). Read-only plus `gh pr comment`. Agent mode injects no PR or issue data, so REVIEW.md begins by fetching the diff and the issue with these. No file tools: the reviewer runs from a checkout of development, not the PR head, and never writes.",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ],
+    "deny": [
+      "Edit",
+      "MultiEdit",
+      "Write",
+      "WebFetch",
+      "WebSearch",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr review:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(gh api:*)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"
+  }
+}

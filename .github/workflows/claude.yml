@@ -1,0 +1,144 @@
+# Revision workflow: an `@claude …` comment on a PR (not `@claude review`,
+# which belongs to claude-review.yml) starts a run on the PR's own branch that
+# pushes fixes and replies. Not the stock file: it runs in agent mode like the
+# build workflow, injects the comment itself, and carries the same guards.
+#
+# Gates: the comment is on a PR (an @claude reply on an issue, such as an
+# answer to an Ask, starts nothing), the commenter is a human (the app is in
+# the review workflow's allowed_bots, so without this a reviewer comment that
+# quotes "@claude" would re-trigger), and the commenter is the repo owner.
+name: claude
+
+on:
+  issue_comment:
+    types: [created]
+
+# Shares the build group: one implementer at a time.
+concurrency:
+  group: claude-build
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1"
+  GH_REPO: ${{ github.repository }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  revise:
+    if: >-
+      github.event.issue.pull_request
+      && github.event.comment.user.type == 'User'
+      && github.event.comment.user.login == github.repository_owner
+      && contains(github.event.comment.body, '@claude')
+      && !contains(github.event.comment.body, '@claude review')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.LOOP_APP_ID }}
+          private-key: ${{ secrets.LOOP_APP_PRIVATE_KEY }}
+
+      - name: Resolve the PR head branch and labels
+        id: pr
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh pr view "$PR_NUMBER" --json headRefName,baseRefName,labels,isCrossRepository > pr.json
+          HEAD="$(jq -r .headRefName pr.json)"
+          BASE="$(jq -r .baseRefName pr.json)"
+          CROSS="$(jq -r .isCrossRepository pr.json)"
+          if [ "$CROSS" = "true" ]; then echo "::error::fork PR: no revision run"; exit 1; fi
+          if [ "$BASE" != "development" ]; then echo "::error::base is $BASE, not development"; exit 1; fi
+          {
+            echo "head=$HEAD"
+            echo "labels=$(jq -r '[.labels[].name] | join(",")' pr.json)"
+          } >> "$GITHUB_OUTPUT"
+          echo "CLAUDE_BRANCH=$HEAD" >> "$GITHUB_ENV"
+          rm pr.json
+
+      - name: Checkout the PR branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.pr.outputs.head }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Resolve bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: bash .github/scripts/bot-identity.sh
+
+      - name: Route attribute labels to flags
+        id: router
+        env:
+          LABELS: ${{ steps.pr.outputs.labels }}
+        run: bash .github/scripts/router.sh
+
+      - name: Build the revision prompt
+        id: prompt
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TEMPLATE: .claude/prompts/revise.md
+          OWNER: ${{ github.repository_owner }}
+          BOT_NAME: ${{ steps.bot.outputs.bot_name }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          MODEL: ${{ steps.router.outputs.model }}
+          EFFORT: ${{ steps.router.outputs.effort }}
+          ADVISOR: ${{ steps.router.outputs.advisor }}
+          RISK_HIGH: ${{ steps.router.outputs.risk_high }}
+        run: bash .github/scripts/build-prompt.sh
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Claude Code
+        id: claude
+        timeout-minutes: 45
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: ${{ steps.prompt.outputs.text }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          settings: .claude/settings.json
+          base_branch: development
+          bot_id: ${{ steps.bot.outputs.bot_id }}
+          bot_name: ${{ steps.bot.outputs.bot_name }}
+          claude_args: >-
+            --max-turns 100
+            ${{ steps.router.outputs.claude_args }}
+
+      - name: Mint token for the after-run step
+        id: after-token
+        if: always()
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.LOOP_APP_ID }}
+          private-key: ${{ secrets.LOOP_APP_PRIVATE_KEY }}
+
+      # Failure half only: a revision run touches no labels.
+      - name: After run (failure trail)
+        if: always()
+        env:
+          GH_TOKEN: ${{ steps.after-token.outputs.token }}
+          MODE: revise
+          OUTCOME: ${{ steps.claude.outcome }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: bash .github/scripts/after-run.sh

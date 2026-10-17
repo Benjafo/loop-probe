@@ -1,0 +1,60 @@
+# One issue form for everyone. /plan writes issue bodies in this exact section
+# shape (gh cannot fill a form), so every implementing run sees the same thing
+# whether I or the skill wrote the issue. No Risk field: the router reads
+# labels, so risk is the `risk:high` label.
+name: Task
+description: A unit of work for the Issue-to-PR loop. One vertical slice, one PR.
+title: ""
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write it so a fresh session with no memory of this conversation can build it. Numbered acceptance criteria become test names (`AC-2: rejects an expired token`), so "every criterion has a test" is a check, not a judgment.
+
+        Risk is a label, not a field: add **`risk:high`** if this touches auth, payments, deletion, or migrations. Attribute labels (`model:*`, `effort:*`, `advisor:*`) are optional and go on before `claude`. Add **`claude`** last, or leave it in Ready for `/dispatch`.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What this issue delivers, in one or two sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The user-facing reason. What is wrong or missing today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Acceptance criteria
+      description: Numbered AC-1, AC-2, … in Given/When/Then form. Each one becomes a test.
+      placeholder: |
+        - AC-1: Given a signed-in user, when they open /settings, then their email is shown.
+        - AC-2: Given an expired token, when any API call is made, then it is rejected with 401.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this issue deliberately does not do, so the run doesn't guess.
+
+  - type: textarea
+    id: verify
+    attributes:
+      label: How to verify in the preview
+      description: Click-by-click steps on the preview deploy that show the criteria met.
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Set blocked-by in the sidebar; /dispatch reads the relationship, not this text. Use this field only for notes.

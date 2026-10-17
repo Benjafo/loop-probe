@@ -1,0 +1,18 @@
+[
+  { "name": "claude",         "color": "1F6F5C", "description": "Trigger: start an implementing run. Added last; removed by the run." },
+  { "name": "needs-input",    "color": "D93F0B", "description": "A run asked a question or left a draft. Answer or decide, then remove this." },
+  { "name": "epic",           "color": "5319E7", "description": "A /plan parent issue holding sub-issues. Never dispatched; closed by hand." },
+  { "name": "model:sonnet",   "color": "0E8A16", "description": "Attribute: run on Sonnet (default)." },
+  { "name": "model:opus",     "color": "0E8A16", "description": "Attribute: run on Opus. Escalation path." },
+  { "name": "model:fable",    "color": "0E8A16", "description": "Attribute: run on Fable. Explicit; bills usage credits." },
+  { "name": "effort:low",     "color": "C5DEF5", "description": "Attribute: --effort low" },
+  { "name": "effort:medium",  "color": "C5DEF5", "description": "Attribute: --effort medium" },
+  { "name": "effort:high",    "color": "C5DEF5", "description": "Attribute: --effort high (default)" },
+  { "name": "effort:xhigh",   "color": "C5DEF5", "description": "Attribute: --effort xhigh" },
+  { "name": "effort:max",     "color": "C5DEF5", "description": "Attribute: --effort max" },
+  { "name": "advisor:opus",   "color": "BFD4F2", "description": "Attribute: Opus advises the main model (default unless model:fable)." },
+  { "name": "advisor:fable",  "color": "BFD4F2", "description": "Attribute: Fable advises the main model. The only advisor for model:fable." },
+  { "name": "advisor:off",    "color": "BFD4F2", "description": "Attribute: no advisor." },
+  { "name": "risk:high",      "color": "B60205", "description": "Auth, payments, deletion, migrations. Mandatory diff read; security-focused review." },
+  { "name": "dependencies",   "color": "EDEDED", "description": "Dependabot." }
+]
