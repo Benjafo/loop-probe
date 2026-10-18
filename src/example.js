@@ -93,6 +93,39 @@ export function isBlank(text) {
 
 /**
  * @param {unknown} text
+ * @returns {string} lower-cased a-z0-9 words joined by single hyphens
+ * @throws {TypeError} if text is not a string, is empty or whitespace-only, or has no ASCII letters or digits
+ * @example
+ * slugify(" Hello, World! "); // "hello-world"
+ */
+export function slugify(text) {
+  if (typeof text !== "string" || text.trim() === "") {
+    throw new TypeError("text must be a non-empty string");
+  }
+  const slug = text
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (slug === "") {
+    throw new TypeError("text must contain an ASCII letter or digit");
+  }
+  return slug;
+}
+
+/**
+ * @param {unknown} text
+ * @returns {string}
+ */
+export function exclaim(text) {
+  if (typeof text !== "string" || text.trim() === "") {
+    throw new TypeError("text must be a non-empty string");
+  }
+  return text.trim().replace(/!+$/, "") + "!";
+}
+
+/**
+ * @param {unknown} text
  * @returns {string}
  */
 export function reverseWords(text) {
