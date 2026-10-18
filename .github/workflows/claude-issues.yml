@@ -19,13 +19,6 @@ on:
   issues:
     types: [labeled]
 
-# One build at a time. Without `queue: max` GitHub keeps one pending run and a
-# third label cancels the second; with it up to 100 wait in arrival order.
-concurrency:
-  group: claude-build
-  cancel-in-progress: false
-  queue: max
-
 permissions:
   contents: write
   pull-requests: write
@@ -39,8 +32,20 @@ env:
 
 jobs:
   implement:
+    # Job-level, not workflow-level: a job skipped by its `if` never enters
+    # the group, so attribute-label and non-matching comment events do not
+    # queue behind a real run.
+    # One build at a time (shared with claude.yml). Without `queue: max` GitHub
+    # keeps one pending run and a third label cancels the second; with it up to
+    # 100 wait in arrival order.
+    concurrency:
+      group: claude-build
+      cancel-in-progress: false
+      queue: max
     if: >-
       github.event.label.name == 'claude'
+      && github.event.issue.state == 'open'
+      && !github.event.issue.pull_request
       && (github.event.issue.user.login == github.repository_owner
           || github.event.issue.user.login == format('{0}[bot]', vars.LOOP_APP_SLUG))
       && github.actor == github.repository_owner
