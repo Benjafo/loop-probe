@@ -46,6 +46,8 @@ gh project item-list "$PROJECT_NUMBER" --owner @me --limit 200 --format json \
          | {item: .id, number: .content.number, status: .status}]' --arg repo "$REPO"
 ```
 
+Items in **In review** (set by the project's "PR linked" workflow) are never candidates: a PR exists for them. Nothing moves a card back out of In review, so after a close-and-reissue the owner drags the card to Ready; if a named issue sits in In review with no open PR, dispatch it anyway and say so.
+
 Queue order: every item with `status == "Ready"` in board order, then every item with `status == "In Progress"` (those are filtered in step 3: an In Progress card qualifies only when its issue carries neither `claude` nor `needs-input`, meaning the owner answered or rewrote it after a run and nothing could move its card back, since the app token can't touch a user project).
 
 Keep each candidate's project item id; step 4 needs it to move the card. For explicitly named issues, look the item id up from the same listing; an issue with no card is still dispatched, and the report says the card could not be moved.

@@ -96,8 +96,14 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: development
-          fetch-depth: 1
+          fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
+
+      # Fetch the PR head as a remote ref only, so `git log/show/diff` on its
+      # commits work read-only while the working tree stays on development.
+      - name: Fetch the PR head commits
+        if: steps.gate.outputs.go == 'true'
+        run: git fetch --no-tags origin "+refs/heads/${{ steps.gate.outputs.head }}:refs/remotes/origin/pr-head"
 
       - name: Resolve bot identity
         if: steps.gate.outputs.go == 'true'
@@ -115,8 +121,10 @@ jobs:
         with:
           prompt: |
             You are the independent reviewer for pull request #${{ github.event.pull_request.number || github.event.issue.number }} in ${{ github.repository }}.
-            The PR closes issue #${{ steps.gate.outputs.issue || 'unknown' }}. Risk tier: ${{ steps.gate.outputs.risk_high == 'true' && 'risk:high (use the security variant)' || 'normal' }}.
+            The PR closes issue #${{ steps.gate.outputs.issue || 'unknown' }}.
+            RISK TIER: ${{ steps.gate.outputs.risk_high == 'true' && 'risk:high. Run the security variant (REVIEW.md section 5) and say "risk:high" in the verdict.' || 'normal. Skip the security variant. Do not write "risk:high" anywhere in your comment; omit the Risk section.' }}
             Read .claude/REVIEW.md and follow it exactly. Agent mode injects no PR or issue data: fetch the diff and the issue yourself with gh, as REVIEW.md says, before anything else.
+            The PR head's commits are already fetched at refs/remotes/origin/pr-head; use `git log`, `git show --stat`, and `git diff origin/development...origin/pr-head` for the per-commit checks. Your checkout stays on development.
             Your only write is `gh pr comment` on this PR. Never edit files, never push, never approve or merge.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
