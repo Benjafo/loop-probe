@@ -72,7 +72,7 @@ The owner edits or approves in the conversation. **Nothing is created before an 
    gh project item-edit --id "$ITEM" --project-id "$PROJECT_ID" --field-id "$STATUS_FIELD_ID" --single-select-option-id "$BACKLOG"
    ```
    If either call fails for lack of permission, the issue still exists: record "created #N; card not added: <reason>" in the same words `/dispatch` uses, and continue. (The project's auto-add toggle will usually pick it up anyway.)
-4. Edit the epic's body to replace the title list with `#N` links once all numbers exist.
+4. Edit the epic's body to replace the title list with `#N` links once all numbers exist. This is cosmetic: GitHub's sub-issue panel on the epic already lists them, so if the edit is denied or fails, say so in the report and move on; it is not a failed step.
 
 If creation fails partway, stop, report exactly which issues exist and which don't, and do not retry automatically: a second run would duplicate the ones that succeeded.
 

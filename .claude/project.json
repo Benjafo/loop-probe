@@ -7,6 +7,8 @@
     "backlog": "bd421824",
     "ready": "a42b312a",
     "in_progress": "ab1c913a",
-    "done": "0e5f05f3"
+    "in_review": "ddb0a5f1",
+    "done": "0e5f05f3",
+    "discarded": "89266424"
   }
 }
