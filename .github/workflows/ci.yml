@@ -24,11 +24,11 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # patch coverage diffs against the base branch
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -42,9 +42,7 @@ jobs:
         run: npm run typecheck
 
       - name: Test with coverage
-        run: |
-          mkdir -p coverage
-          npm run test:coverage
+        run: npm run test:coverage
 
       - name: Patch coverage on changed lines
         if: github.event_name == 'pull_request'
