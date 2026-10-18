@@ -48,6 +48,17 @@ export function farewell(name) {
 }
 
 /**
+ * @param {unknown} text
+ * @returns {number}
+ */
+export function countWords(text) {
+  if (typeof text !== "string" || text.trim() === "") {
+    throw new TypeError("text must be a non-empty string");
+  }
+  return text.trim().split(/\s+/).length;
+}
+
+/**
  * @param {string} name
  * @returns {string}
  */
