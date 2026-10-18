@@ -22,6 +22,21 @@ export function greet(name, options) {
 }
 
 /**
+ * @param {unknown} word
+ * @returns {string} the trimmed word with its first character upper-cased
+ * @throws {TypeError} if word is not a string, or is empty or whitespace-only
+ * @example
+ * capitalize(" ada "); // "Ada"
+ */
+export function capitalize(word) {
+  if (typeof word !== "string" || word.trim() === "") {
+    throw new TypeError("word must be a non-empty string");
+  }
+  const trimmed = word.trim();
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
+/**
  * @param {unknown} name
  * @returns {string}
  */
