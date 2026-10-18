@@ -12,7 +12,8 @@
 #
 # In order (the order matters: the first repo write happens before protection):
 #   1. labels                     from .github/labels.json
-#   2. project board              Status field: Backlog, Ready, In Progress, Done
+#   2. project board              Status field: Backlog, Ready, In Progress, In review,
+#                                 Done, Discarded
 #   3. .claude/project.json       committed and pushed to development
 #   4. production branch          created from development's current commit
 #   5. rulesets + merge settings  on development and production
@@ -87,8 +88,10 @@ PROJECT_ID="$(gh project view "$PROJECT_NUMBER" --owner "@me" --format json --jq
 STATUS_FIELD_ID="$(gh project field-list "$PROJECT_NUMBER" --owner "@me" --format json --jq '.fields[] | select(.name=="Status") | .id')"
 
 # The built-in Status field ships with Todo / In Progress / Done. Replace its
-# options with the four columns the loop uses. (gh has no subcommand for this;
-# it is one GraphQL mutation, which your own token may run.)
+# options with the six columns the loop uses. (gh has no subcommand for this;
+# it is one GraphQL mutation, which your own token may run.) The skills set
+# Backlog and In Progress; the project's own workflows set In review and Done;
+# Discarded is set by hand only.
 gh api graphql -f query='
   mutation($fieldId: ID!) {
     updateProjectV2Field(input: {
@@ -97,11 +100,13 @@ gh api graphql -f query='
         {name: "Backlog",     color: GRAY,   description: "Written, not promoted. Costs nothing."},
         {name: "Ready",       color: BLUE,   description: "The queue. Promoting is the spend decision."},
         {name: "In Progress", color: YELLOW, description: "Dispatched, or answered and waiting for re-dispatch."},
-        {name: "Done",        color: GREEN,  description: "Issue closed by a merged PR."}
+        {name: "In review",   color: PURPLE, description: "A PR is open for it. Set by the PR-linked workflow."},
+        {name: "Done",        color: GREEN,  description: "Issue closed by a merged PR."},
+        {name: "Discarded",   color: RED,    description: "Closed without a merge. Dragged here by hand after closing."}
       ]
     }) { projectV2Field { ... on ProjectV2SingleSelectField { id } } }
   }' -F fieldId="$STATUS_FIELD_ID" >/dev/null
-echo "  Status options set: Backlog, Ready, In Progress, Done"
+echo "  Status options set: Backlog, Ready, In Progress, In review, Done, Discarded"
 
 OPTS="$(gh project field-list "$PROJECT_NUMBER" --owner "@me" --format json --jq '.fields[] | select(.name=="Status") | .options')"
 opt() { jq -r --arg n "$1" '.[] | select(.name==$n) | .id' <<<"$OPTS"; }
@@ -114,9 +119,10 @@ jq -n \
   --argjson number "$PROJECT_NUMBER" \
   --arg project_id "$PROJECT_ID" \
   --arg status_field_id "$STATUS_FIELD_ID" \
-  --arg backlog "$(opt Backlog)" --arg ready "$(opt Ready)" --arg inprog "$(opt 'In Progress')" --arg done "$(opt Done)" \
+  --arg backlog "$(opt Backlog)" --arg ready "$(opt Ready)" --arg inprog "$(opt 'In Progress')" \
+  --arg inreview "$(opt 'In review')" --arg done "$(opt Done)" --arg discarded "$(opt Discarded)" \
   '{repo:$repo, project_number:$number, project_id:$project_id, status_field_id:$status_field_id,
-    status_options:{backlog:$backlog, ready:$ready, in_progress:$inprog, done:$done}}' > "$PROJECT_JSON"
+    status_options:{backlog:$backlog, ready:$ready, in_progress:$inprog, in_review:$inreview, done:$done, discarded:$discarded}}' > "$PROJECT_JSON"
 cat "$PROJECT_JSON"
 if git diff --quiet -- "$PROJECT_JSON" && git ls-files --error-unmatch "$PROJECT_JSON" >/dev/null 2>&1; then
   echo "  unchanged"
@@ -228,13 +234,15 @@ cat <<EOF
     • Auto-add to project: on, for this repo, filter "is:issue" (hand-written issues land
       in Backlog; /plan adds its own and sets Backlog itself; PRs stay off the board)
     • Item closed → set Status: Done
-    • Pull request linked → set Status: In review  (add the "In review" option to the
-      Status field first, between In Progress and Done; the skills never set it, so
-      .claude/project.json needs no change)
+    • Pull request linked → set Status: In review
     • Pull request merged → set Status: Done  (redundant with Item closed via Closes #N,
       harmless)
     Note: nothing moves a card back out of In review. On close-and-reissue, drag the
     card to Ready yourself as part of rewriting the issue.
+    Note: "Item closed" fires on every close, merged or not, and has no filter on the
+    close reason. An issue you close without a merge (close-and-reissue, abandoned,
+    duplicate) lands in Done; drag it to Discarded after closing. Nothing automated
+    sets or reads Discarded.
   https://github.com/users/$ME/projects/$PROJECT_NUMBER
     • Optional: + New view → Board, to see Status as columns. The loop reads the Status
       field, not a view, so the default table works too.
