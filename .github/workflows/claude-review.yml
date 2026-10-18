@@ -15,12 +15,6 @@ on:
   issue_comment:
     types: [created]
 
-# Own group: reviews never queue behind builds.
-concurrency:
-  group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: false
-  queue: max
-
 permissions:
   contents: read
   pull-requests: write
@@ -33,6 +27,14 @@ env:
 
 jobs:
   review:
+    # Job-level, not workflow-level: a job skipped by its `if` never enters
+    # the group, so attribute-label and non-matching comment events do not
+    # queue behind a real run.
+    # Own group per PR: reviews never queue behind builds.
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: false
+      queue: max
     if: >-
       (github.event_name == 'pull_request'
         && github.event.pull_request.base.ref == 'development'
