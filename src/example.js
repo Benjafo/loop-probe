@@ -2,6 +2,17 @@
 // cover. /bootstrap deletes it once the real vertical slices exist.
 
 const DEFAULT_TEMPLATE = "Hello, {name}!";
+const HISTORY_LIMIT = 50;
+
+/** @type {string[]} greetings returned by successful greet calls, oldest first */
+const greetings = [];
+
+/**
+ * @returns {string[]} a copy of the greeting log, oldest first, at most the 50 most recent
+ */
+export function history() {
+  return [...greetings];
+}
 
 /**
  * @param {string} name
@@ -18,7 +29,12 @@ export function greet(name, options) {
     throw new TypeError("template must be a string containing {name}");
   }
   // Replacer function so "$" sequences in the name are not interpreted.
-  return template.replaceAll("{name}", () => name.trim());
+  const greeting = template.replaceAll("{name}", () => name.trim());
+  greetings.push(greeting);
+  if (greetings.length > HISTORY_LIMIT) {
+    greetings.shift();
+  }
+  return greeting;
 }
 
 /**
