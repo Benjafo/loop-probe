@@ -11,3 +11,14 @@ export function greet(name) {
   }
   return `Hello, ${name.trim()}!`;
 }
+
+/**
+ * @param {unknown} name
+ * @returns {string}
+ */
+export function farewell(name) {
+  if (typeof name !== "string" || name.trim() === "") {
+    throw new TypeError("name must be a non-empty string");
+  }
+  return `Goodbye, ${name.trim()}!`;
+}
