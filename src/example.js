@@ -22,3 +22,14 @@ export function farewell(name) {
   }
   return `Goodbye, ${name.trim()}!`;
 }
+
+/**
+ * @param {string} name
+ * @returns {string}
+ */
+export function shout(name) {
+  if (typeof name !== "string" || name.trim() === "") {
+    throw new TypeError("name must be a non-empty string");
+  }
+  return `Hello, ${name.trim()}`.toUpperCase() + "!!!";
+}
