@@ -13,7 +13,7 @@ export function greet(name) {
 }
 
 /**
- * @param {string} name
+ * @param {unknown} name
  * @returns {string}
  */
 export function farewell(name) {
