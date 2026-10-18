@@ -33,6 +33,21 @@ export function farewell(name) {
 }
 
 /**
+ * @param {unknown} fullName
+ * @returns {string} e.g. "Ada Lovelace" -> "A.L."
+ */
+export function initials(fullName) {
+  if (typeof fullName !== "string" || fullName.trim() === "") {
+    throw new TypeError("fullName must be a non-empty string");
+  }
+  return fullName
+    .trim()
+    .split(/\s+/)
+    .map((word) => word[0].toUpperCase() + ".")
+    .join("");
+}
+
+/**
  * @param {string} name
  * @returns {string}
  */
