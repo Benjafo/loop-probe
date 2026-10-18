@@ -128,7 +128,7 @@ jobs:
           bot_id: ${{ steps.bot.outputs.bot_id }}
           bot_name: ${{ steps.bot.outputs.bot_name }}
           claude_args: >-
-            --max-turns 5
+            --max-turns 150
             ${{ steps.router.outputs.claude_args }}
 
       # A fresh token: the Action revokes the one it was given as its last step.
