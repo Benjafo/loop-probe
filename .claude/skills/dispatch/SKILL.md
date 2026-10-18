@@ -30,7 +30,7 @@ cat .claude/project.json           # written by setup.sh; refuse without it
 gh auth status                     # must succeed
 ```
 
-Read from `project.json`: `repo`, `project_number`, `project_id`, `status_field_id`, `status_options.{backlog,ready,in_progress,done}`. Resolve the app's bot login once: `gh variable get LOOP_APP_SLUG` → `BOT="<slug>[bot]"`. If the variable is missing, say so and continue; the open-PR check then uses `--author` with the head-branch pattern alone.
+Read from `project.json`: `repo`, `project_number`, `project_id`, `status_field_id`, `status_options.{backlog,ready,in_progress,in_review,done,discarded}` (older files lack `in_review` and `discarded`; the skill never sets either, so their absence is not an error). Resolve the app's bot login once: `gh variable get LOOP_APP_SLUG` → `BOT="<slug>[bot]"`. If the variable is missing, say so and continue; the open-PR check then uses `--author` with the head-branch pattern alone.
 
 Note the current `gh` identity (`gh api user --jq .login`); if it is not the repo owner, warn that the labeled event's actor must be the owner for the build workflow's gate to pass, and continue.
 
@@ -46,7 +46,7 @@ gh project item-list "$PROJECT_NUMBER" --owner @me --limit 200 --format json \
          | {item: .id, number: .content.number, status: .status}]' --arg repo "$REPO"
 ```
 
-Items in **In review** (set by the project's "PR linked" workflow) are never candidates: a PR exists for them. Nothing moves a card back out of In review, so after a close-and-reissue the owner drags the card to Ready; if a named issue sits in In review with no open PR, dispatch it anyway and say so.
+Items in **In review** (set by the project's "PR linked" workflow) are never candidates: a PR exists for them. Nothing moves a card back out of In review, so after a close-and-reissue the owner drags the card to Ready; if a named issue sits in In review with no open PR, dispatch it anyway and say so. Items in **Done** or **Discarded** are never candidates either, named or not: both mean a closed issue, and Discarded is the owner's record that it was closed without a merge. Skip and report one that is named.
 
 Queue order: every item with `status == "Ready"` in board order, then every item with `status == "In Progress"` (those are filtered in step 3: an In Progress card qualifies only when its issue carries neither `claude` nor `needs-input`, meaning the owner answered or rewrote it after a run and nothing could move its card back, since the app token can't touch a user project).
 
