@@ -40,11 +40,13 @@ function parseLcov(text) {
     if (line.startsWith("SF:")) {
       const abs = line.slice(3);
       const rel = path.isAbsolute(abs) ? path.relative(process.cwd(), abs) : abs;
-      current = new Map();
-      files.set(rel.split(path.sep).join("/"), current);
+      const key = rel.split(path.sep).join("/");
+      // node:test emits one record per test process; merge them, keeping max hits.
+      current = files.get(key) ?? new Map();
+      files.set(key, current);
     } else if (line.startsWith("DA:") && current) {
       const [ln, hits] = line.slice(3).split(",");
-      current.set(Number(ln), Number(hits));
+      current.set(Number(ln), Math.max(current.get(Number(ln)) ?? 0, Number(hits)));
     } else if (line === "end_of_record") {
       current = null;
     }
