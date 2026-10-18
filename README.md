@@ -16,7 +16,8 @@ Everything identical across projects lives here. The judgment calls (`docs/SPEC.
 | `.github/scripts/` | The router, prompt builder, and always() step the workflows call |
 | `.github/ISSUE_TEMPLATE/task.yml` | The one issue form: numbered AC-n criteria, no Risk field |
 | `.github/labels.json` | `claude`, `needs-input`, `epic`, `model:*`, `effort:*`, `advisor:*`, `risk:high` |
-| `.claude/settings.json` | Allowed tools for implementing runs |
+| `.claude/run-settings.json` | Allowed tools for implementing and revision runs (passed to the Action; never read by your own sessions) |
+| `.claude/settings.json` | Allowed tools for your interactive sessions in a clone: what `/plan`, `/dispatch` and `/bootstrap` run |
 | `.claude/review-settings.json` | Allowed tools for the reviewer (read-only + `gh pr comment`) |
 | `.claude/prompts/` | The run prompt and the revision prompt |
 | `.claude/REVIEW.md` | The reviewer's instructions |
