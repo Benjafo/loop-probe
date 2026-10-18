@@ -37,7 +37,7 @@ If the criteria are ambiguous or the issue is more than one feature: ask on the 
 
 <!-- /bootstrap: the handful of rules a linter can't express. Everything that can be a lint rule should be one. -->
 
-- 
+- Every exported string helper in `src/example.js` trims its string argument and throws `TypeError` on a non-string, empty, or whitespace-only input.
 
 ## Risk
 

@@ -15,12 +15,6 @@ on:
   issue_comment:
     types: [created]
 
-# Own group: reviews never queue behind builds.
-concurrency:
-  group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: false
-  queue: max
-
 permissions:
   contents: read
   pull-requests: write
@@ -33,6 +27,14 @@ env:
 
 jobs:
   review:
+    # Job-level, not workflow-level: a job skipped by its `if` never enters
+    # the group, so attribute-label and non-matching comment events do not
+    # queue behind a real run.
+    # Own group per PR: reviews never queue behind builds.
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: false
+      queue: max
     if: >-
       (github.event_name == 'pull_request'
         && github.event.pull_request.base.ref == 'development'
@@ -76,11 +78,14 @@ jobs:
           [ "$CROSS" = "false" ] || { echo "fork PR: skip"; GO=false; }
           [ "$AUTHOR" != "dependabot" ] && [ "$AUTHOR" != "app/dependabot" ] || { echo "dependabot: skip"; GO=false; }
 
+          # One label name per line, then an exact-line grep: gh's --jq is gojq,
+          # whose index() on an array yields [] rather than null when there is
+          # no match, so a "not null" test reads as risk:high on every PR.
           RISK=false
-          jq -e '[.labels[].name] | index("risk:high")' pr.json >/dev/null && RISK=true
+          jq -r '.labels[].name' pr.json | grep -qx 'risk:high' && RISK=true
           ISSUE="$(jq -r .body pr.json | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)"
           if [ -n "$ISSUE" ]; then
-            gh issue view "$ISSUE" --json labels --jq '[.labels[].name] | index("risk:high")' | grep -qv null && RISK=true
+            gh issue view "$ISSUE" --json labels --jq '.labels[].name' | grep -qx 'risk:high' && RISK=true
           fi
           echo "go=$GO risk_high=$RISK issue=${ISSUE:-none} head=$HEAD"
           {
@@ -93,11 +98,19 @@ jobs:
 
       - name: Checkout development (not the PR head)
         if: steps.gate.outputs.go == 'true'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: development
-          fetch-depth: 1
+          fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
+
+      # Fetch the PR head as a remote ref only, so `git log/show/diff` on its
+      # commits work read-only while the working tree stays on development.
+      - name: Fetch the PR head commits
+        if: steps.gate.outputs.go == 'true'
+        env:
+          HEAD_REF: ${{ steps.gate.outputs.head }}
+        run: git fetch --no-tags origin "+refs/heads/${HEAD_REF}:refs/remotes/origin/pr-head"
 
       - name: Resolve bot identity
         if: steps.gate.outputs.go == 'true'
@@ -115,8 +128,10 @@ jobs:
         with:
           prompt: |
             You are the independent reviewer for pull request #${{ github.event.pull_request.number || github.event.issue.number }} in ${{ github.repository }}.
-            The PR closes issue #${{ steps.gate.outputs.issue || 'unknown' }}. Risk tier: ${{ steps.gate.outputs.risk_high == 'true' && 'risk:high (use the security variant)' || 'normal' }}.
+            The PR closes issue #${{ steps.gate.outputs.issue || 'unknown' }}.
+            RISK TIER: ${{ steps.gate.outputs.risk_high == 'true' && 'risk:high. Run the security variant (REVIEW.md section 5) and say "risk:high" in the verdict.' || 'normal. Skip the security variant. Do not write "risk:high" anywhere in your comment; omit the Risk section.' }}
             Read .claude/REVIEW.md and follow it exactly. Agent mode injects no PR or issue data: fetch the diff and the issue yourself with gh, as REVIEW.md says, before anything else.
+            The PR head's commits are already fetched at refs/remotes/origin/pr-head; use `git log`, `git show --stat`, and `git diff origin/development...origin/pr-head` for the per-commit checks. Your checkout stays on development.
             Your only write is `gh pr comment` on this PR. Never edit files, never push, never approve or merge.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}

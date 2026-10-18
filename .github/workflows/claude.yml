@@ -13,12 +13,6 @@ on:
   issue_comment:
     types: [created]
 
-# Shares the build group: one implementer at a time.
-concurrency:
-  group: claude-build
-  cancel-in-progress: false
-  queue: max
-
 permissions:
   contents: write
   pull-requests: write
@@ -31,6 +25,14 @@ env:
 
 jobs:
   revise:
+    # Job-level, not workflow-level: a job skipped by its `if` never enters
+    # the group, so attribute-label and non-matching comment events do not
+    # queue behind a real run.
+    # Shares the build group: one implementer at a time.
+    concurrency:
+      group: claude-build
+      cancel-in-progress: false
+      queue: max
     if: >-
       github.event.issue.pull_request
       && github.event.comment.user.type == 'User'
@@ -66,7 +68,7 @@ jobs:
           rm pr.json
 
       - name: Checkout the PR branch
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.pr.outputs.head }}
           fetch-depth: 0
@@ -101,7 +103,7 @@ jobs:
         run: bash .github/scripts/build-prompt.sh
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm

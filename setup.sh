@@ -12,13 +12,14 @@
 #
 # In order (the order matters: the first repo write happens before protection):
 #   1. labels                     from .github/labels.json
-#   2. project board              Status field: Backlog, Ready, In Progress, Done
+#   2. project board              Status field: Backlog, Ready, In Progress, In review,
+#                                 Done, Discarded
 #   3. .claude/project.json       committed and pushed to development
 #   4. production branch          created from development's current commit
 #   5. rulesets + merge settings  on development and production
 #   6. secrets and variables      CLAUDE_CODE_OAUTH_TOKEN, LOOP_APP_ID,
 #                                 LOOP_APP_PRIVATE_KEY, LOOP_APP_SLUG
-#   7. prints the manual steps    two project UI toggles, preview host
+#   7. prints the manual steps    project UI toggles, preview host
 #
 # Re-runnable: each step skips what already exists.
 set -euo pipefail
@@ -73,14 +74,24 @@ if [ -f "$PROJECT_JSON" ] && jq -e .project_id "$PROJECT_JSON" >/dev/null 2>&1; 
 else
   PROJECT_NUMBER="$(gh project create --owner "@me" --title "$NAME" --format json --jq .number)"
   echo "  created project #$PROJECT_NUMBER"
-  gh project link "$PROJECT_NUMBER" --owner "@me" --repo "$REPO" >/dev/null 2>&1 || true
+fi
+# Link the project to the repo so it shows under the repo's Projects tab and
+# auto-add can target it. Re-runnable; report a failure instead of hiding it.
+LINK_FAILED=false
+if gh project link "$PROJECT_NUMBER" --owner "@me" --repo "$REPO" >/dev/null 2>&1; then
+  echo "  linked project #$PROJECT_NUMBER to $REPO"
+else
+  LINK_FAILED=true
+  echo "  warning: could not link project #$PROJECT_NUMBER to $REPO (see manual steps at the end)"
 fi
 PROJECT_ID="$(gh project view "$PROJECT_NUMBER" --owner "@me" --format json --jq .id)"
 STATUS_FIELD_ID="$(gh project field-list "$PROJECT_NUMBER" --owner "@me" --format json --jq '.fields[] | select(.name=="Status") | .id')"
 
 # The built-in Status field ships with Todo / In Progress / Done. Replace its
-# options with the four columns the loop uses. (gh has no subcommand for this;
-# it is one GraphQL mutation, which your own token may run.)
+# options with the six columns the loop uses. (gh has no subcommand for this;
+# it is one GraphQL mutation, which your own token may run.) The skills set
+# Backlog and In Progress; the project's own workflows set In review and Done;
+# Discarded is set by hand only.
 gh api graphql -f query='
   mutation($fieldId: ID!) {
     updateProjectV2Field(input: {
@@ -89,11 +100,13 @@ gh api graphql -f query='
         {name: "Backlog",     color: GRAY,   description: "Written, not promoted. Costs nothing."},
         {name: "Ready",       color: BLUE,   description: "The queue. Promoting is the spend decision."},
         {name: "In Progress", color: YELLOW, description: "Dispatched, or answered and waiting for re-dispatch."},
-        {name: "Done",        color: GREEN,  description: "Issue closed by a merged PR."}
+        {name: "In review",   color: PURPLE, description: "A PR is open for it. Set by the PR-linked workflow."},
+        {name: "Done",        color: GREEN,  description: "Issue closed by a merged PR."},
+        {name: "Discarded",   color: RED,    description: "Closed without a merge. Dragged here by hand after closing."}
       ]
     }) { projectV2Field { ... on ProjectV2SingleSelectField { id } } }
   }' -F fieldId="$STATUS_FIELD_ID" >/dev/null
-echo "  Status options set: Backlog, Ready, In Progress, Done"
+echo "  Status options set: Backlog, Ready, In Progress, In review, Done, Discarded"
 
 OPTS="$(gh project field-list "$PROJECT_NUMBER" --owner "@me" --format json --jq '.fields[] | select(.name=="Status") | .options')"
 opt() { jq -r --arg n "$1" '.[] | select(.name==$n) | .id' <<<"$OPTS"; }
@@ -106,16 +119,26 @@ jq -n \
   --argjson number "$PROJECT_NUMBER" \
   --arg project_id "$PROJECT_ID" \
   --arg status_field_id "$STATUS_FIELD_ID" \
-  --arg backlog "$(opt Backlog)" --arg ready "$(opt Ready)" --arg inprog "$(opt 'In Progress')" --arg done "$(opt Done)" \
+  --arg backlog "$(opt Backlog)" --arg ready "$(opt Ready)" --arg inprog "$(opt 'In Progress')" \
+  --arg inreview "$(opt 'In review')" --arg done "$(opt Done)" --arg discarded "$(opt Discarded)" \
   '{repo:$repo, project_number:$number, project_id:$project_id, status_field_id:$status_field_id,
-    status_options:{backlog:$backlog, ready:$ready, in_progress:$inprog, done:$done}}' > "$PROJECT_JSON"
+    status_options:{backlog:$backlog, ready:$ready, in_progress:$inprog, in_review:$inreview, done:$done, discarded:$discarded}}' > "$PROJECT_JSON"
 cat "$PROJECT_JSON"
 if git diff --quiet -- "$PROJECT_JSON" && git ls-files --error-unmatch "$PROJECT_JSON" >/dev/null 2>&1; then
   echo "  unchanged"
 else
   git add "$PROJECT_JSON"
   git commit -q -m "setup: record project ids in .claude/project.json"
-  git push -q origin development
+  echo "  committed"
+fi
+# Push whatever is ahead, including a commit from an earlier run whose push failed
+# (e.g. a stale HTTPS credential). A no-op when origin is already up to date.
+if [ "$(git rev-list --count origin/development..HEAD)" -gt 0 ]; then
+  git push -q origin development || {
+    echo "error: push to origin failed. If this is an HTTPS auth error, switch the remote to SSH:" >&2
+    echo "  git remote set-url origin git@github.com:$REPO.git && ./setup.sh" >&2
+    exit 1
+  }
   echo "  pushed"
 fi
 
@@ -205,12 +228,32 @@ fi
 # ---------------------------------------------------------------- 7. manual
 cat <<EOF
 
-== 7. done. Two project toggles have no API; do them in the UI:
+== 7. done. The project's UI toggles have no API; do them by hand:
 
   https://github.com/users/$ME/projects/$PROJECT_NUMBER/workflows
-    • Auto-add to project: on, for this repo, issues (hand-written issues land in Backlog;
-      /plan adds its own and sets Backlog itself)
+    • Auto-add to project: on, for this repo, filter "is:issue" (hand-written issues land
+      in Backlog; /plan adds its own and sets Backlog itself; PRs stay off the board)
     • Item closed → set Status: Done
+    • Pull request linked → set Status: In review
+    • Pull request merged → set Status: Done  (redundant with Item closed via Closes #N,
+      harmless)
+    Note: nothing moves a card back out of In review. On close-and-reissue, drag the
+    card to Ready yourself as part of rewriting the issue.
+    Note: "Item closed" fires on every close, merged or not, and has no filter on the
+    close reason. An issue you close without a merge (close-and-reissue, abandoned,
+    duplicate) lands in Done; drag it to Discarded after closing. Nothing automated
+    sets or reads Discarded.
+  https://github.com/users/$ME/projects/$PROJECT_NUMBER
+    • Optional: + New view → Board, to see Status as columns. The loop reads the Status
+      field, not a view, so the default table works too.
+EOF
+if [ "$LINK_FAILED" = true ]; then
+  cat <<EOF
+    • Link the project to the repo (the script could not): $REPO → Projects tab →
+      "Link a project" → pick "$NAME".
+EOF
+fi
+cat <<EOF
 
 Then:
   • Preview host: connect the repo, set 'production' as the production branch, and
