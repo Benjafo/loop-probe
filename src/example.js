@@ -112,3 +112,14 @@ export function slugify(text) {
   }
   return slug;
 }
+
+/**
+ * @param {unknown} text
+ * @returns {string}
+ */
+export function exclaim(text) {
+  if (typeof text !== "string" || text.trim() === "") {
+    throw new TypeError("text must be a non-empty string");
+  }
+  return text.trim().replace(/!+$/, "") + "!";
+}
