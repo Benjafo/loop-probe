@@ -9,13 +9,13 @@ gh pr view <N> --json title,body,labels,baseRefName,headRefName,commits,files
 gh pr diff <N>
 ```
 
-Find the issue number in the body (`Closes #M`) and fetch it: `gh issue view <M> --json title,body,labels,comments`. The acceptance criteria (AC-1, AC-2, …) in the issue are the contract. Risk is `risk:high` on either the PR or the issue; the workflow already told you the tier.
+Find the issue number in the body (`Closes #M`) and fetch it: `gh issue view <M> --json title,body,labels,comments`. The acceptance criteria (AC-1, AC-2, …) in the issue are the contract. The workflow prompt states the risk tier; it is authoritative. Section 5 runs only when it says `risk:high`, and the word `risk:high` appears in your comment only then.
 
 ## 2. Tests against criteria
 
 - Every AC-n in the issue has a test whose name starts with that id. Every AC-n in a test name exists in the issue.
 - The tests assert behavior, not implementation. A test that would pass against an empty stub, or that asserts a mock was called, is not a criteria test.
-- The first commit on the branch is tests only, and later commits do not modify those tests. (`gh pr view --json commits`, then `git show --stat <sha>` on the base checkout after `git fetch origin <headRefName>`.)
+- The first commit on the branch is tests only, and later commits do not modify those tests. The workflow fetched the PR head to `refs/remotes/origin/pr-head`: `git log --oneline origin/development..origin/pr-head`, then `git show --stat <sha>` per commit.
 - No existing test was modified or deleted. New tests are expected; changed tests mean old behavior was redefined, and that needs the issue to say so.
 - Nothing skipped, focused, loosened, or snapshot-blessed to get green.
 
@@ -52,7 +52,7 @@ AC-2 → missing ✗
 **Conventions**
 - …or "none"
 
-**Risk** (only when risk:high)
+**Risk** (this section only when the tier is risk:high; omit it otherwise)
 - …
 
 **Always-read triggers present:** CLAUDE.md / .claude / CI / dependencies / none

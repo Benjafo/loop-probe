@@ -10,7 +10,7 @@ Everything identical across projects lives here. The judgment calls (`docs/SPEC.
 |---|---|
 | `.github/workflows/claude-issues.yml` | `claude` label on an issue → implementing run → PR against `development` |
 | `.github/workflows/claude.yml` | `@claude …` comment on a PR → revision run on the PR's branch |
-| `.github/workflows/claude-review.yml` | Independent review on PR opened / ready, or `@claude review` |
+| `.github/workflows/claude-review.yml` | Independent review on PR opened / ready, or `@claude review`. Note: on `pull_request` events GitHub runs the workflow file from the PR head, so a PR that edits this file is reviewed by its own version of the gates and prompt; `REVIEW.md` and the tool list still come from `development`. That is why CI-config changes are always read by a human. |
 | `.github/workflows/ci.yml` | lint (test-integrity rules), typecheck, tests, patch coverage, build. Check name `ci`. |
 | `.github/workflows/codeql.yml` | CodeQL for javascript-typescript. Check name `CodeQL`. |
 | `.github/scripts/` | The router, prompt builder, and always() step the workflows call |
@@ -34,7 +34,7 @@ The template ships `development` only. `setup.sh` creates `production` from it s
 
 1. **Create the repo from this template.** Keep `development` as the default branch (it is the template's default; don't switch to `main`).
 2. **Install your GitHub App on the repo** (Contents, Pull requests, Issues, Workflows: read and write). Do not run `/install-github-app`.
-3. **Run `setup.sh`** from your terminal in a fresh clone: labels → project → `.claude/project.json` pushed to `development` → `production` → rulesets and merge settings → secrets. Then do the two project UI toggles it prints.
+3. **Run `setup.sh`** from your terminal in a fresh clone (clone over SSH, or run `gh auth setup-git` once so HTTPS pushes use your `gh` login): labels → project → `.claude/project.json` pushed to `development` → `production` → rulesets and merge settings → secrets. Then do the project UI toggles it prints (they have no API): auto-add issues, item closed → Done, PR linked → In review, PR merged → Done. Nothing moves a card back out of In review, so on close-and-reissue drag the card to Ready yourself.
 4. **Connect the preview host**; set `production` as the production branch; confirm it deploys branches whose commits are authored by your app.
 5. `claude --model fable`, then **`/bootstrap`**. Answer the interview, approve the plan, let it scaffold on its branch, merge its PR, let it run the probe issue.
 6. Write the core-flow integration tests you own, in an interactive session.
