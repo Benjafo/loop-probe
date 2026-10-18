@@ -28,8 +28,6 @@ export function farewell(name) {
  * @returns {string}
  */
 export function shout(name) {
-  if (typeof name !== "string" || name.trim() === "") {
-    throw new TypeError("name must be a non-empty string");
-  }
-  return `Hello, ${name.trim()}`.toUpperCase() + "!!!";
+  // greet() validates and trims, and already ends in one "!".
+  return greet(name).toUpperCase() + "!!";
 }
