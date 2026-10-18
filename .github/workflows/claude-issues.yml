@@ -41,6 +41,8 @@ jobs:
   implement:
     if: >-
       github.event.label.name == 'claude'
+      && github.event.issue.state == 'open'
+      && !github.event.issue.pull_request
       && (github.event.issue.user.login == github.repository_owner
           || github.event.issue.user.login == format('{0}[bot]', vars.LOOP_APP_SLUG))
       && github.actor == github.repository_owner
