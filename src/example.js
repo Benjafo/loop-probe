@@ -55,3 +55,11 @@ export function shout(name) {
   // greet() validates and trims, and already ends in one "!".
   return greet(name).toUpperCase() + "!!";
 }
+
+/**
+ * @param {unknown} text
+ * @returns {boolean} true when text is not a string, or is empty or whitespace only
+ */
+export function isBlank(text) {
+  return typeof text !== "string" || text.trim() === "";
+}
