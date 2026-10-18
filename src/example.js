@@ -22,3 +22,12 @@ export function farewell(name) {
   }
   return `Goodbye, ${name.trim()}!`;
 }
+
+/**
+ * @param {string} name
+ * @returns {string}
+ */
+export function shout(name) {
+  // greet() validates and trims, and already ends in one "!".
+  return greet(name).toUpperCase() + "!!";
+}
