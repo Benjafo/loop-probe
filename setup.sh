@@ -33,10 +33,24 @@ OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 DEFAULT="$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)"
 ME="$(gh api user --jq .login)"
+PRIVATE="$(gh repo view --json isPrivate --jq .isPrivate)"
 
 echo "repo:    $REPO"
 echo "default: $DEFAULT"
 echo "user:    $ME"
+echo "private: $PRIVATE"
+if [ "$PRIVATE" = "true" ]; then
+  cat <<'EOT'
+
+  NOTE: private repo. Code scanning (CodeQL), secret scanning and Dependabot
+  security updates need GitHub Advanced Security, which a personal private repo
+  does not have, so the CodeQL workflow fails to upload and the "CodeQL" check
+  never reports. This script leaves CodeQL out of development's required checks
+  on a private repo; the workflow file itself still runs (and fails) until you
+  delete .github/workflows/codeql.yml or make the repo public. Actions minutes
+  are also billed on private repos.
+EOT
+fi
 
 if [ "$DEFAULT" != "development" ]; then
   echo "error: the default branch is '$DEFAULT', not 'development'. Set it in Settings → General before running this." >&2
@@ -196,7 +210,12 @@ ruleset() { # name, branch, merge method, status checks (json array)
   fi
 }
 # development: PR required, squash only, ci and CodeQL must pass, no force push, no delete.
-ruleset "development" development squash '[{"context":"ci"},{"context":"CodeQL"}]'
+# On a private repo CodeQL can't report (no Advanced Security), so only ci is required there.
+if [ "$PRIVATE" = "true" ]; then
+  ruleset "development" development squash '[{"context":"ci"}]'
+else
+  ruleset "development" development squash '[{"context":"ci"},{"context":"CodeQL"}]'
+fi
 # production: PR required (the release PR), merge commit only, ci must pass.
 ruleset "production" production merge '[{"context":"ci"}]'
 
@@ -231,12 +250,17 @@ cat <<EOF
 == 7. done. The project's UI toggles have no API; do them by hand:
 
   https://github.com/users/$ME/projects/$PROJECT_NUMBER/workflows
-    • Auto-add to project: on, for this repo, filter "is:issue" (hand-written issues land
-      in Backlog; /plan adds its own and sets Backlog itself; PRs stay off the board)
+    • Auto-add to project: on, for this repo, filter "is:issue" (PRs stay off the board)
+    • Item added to project: on, set Status: Backlog  (auto-add alone gives a hand-written
+      issue no Status at all, so it sits in no column; /plan sets Backlog itself)
     • Item closed → set Status: Done
-    • Pull request linked → set Status: In review
+    • Pull request linked to issue: on, and CHANGE the Status it sets from GitHub's default,
+      In Progress, to In review  (left at the default, every card with an open PR shows as
+      In Progress and the loop can't tell "running" from "waiting for my review")
     • Pull request merged → set Status: Done  (redundant with Item closed via Closes #N,
       harmless)
+    • Leave Auto-close issue off: it would close an issue when its card is dragged to Done,
+      the reverse of what the loop wants.
     Note: nothing moves a card back out of In review. On close-and-reissue, drag the
     card to Ready yourself as part of rewriting the issue.
     Note: "Item closed" fires on every close, merged or not, and has no filter on the
