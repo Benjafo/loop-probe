@@ -1,15 +1,8 @@
 {
-  "$comment": "Allowed tools for implementing and revision runs (claude-issues.yml, claude.yml), passed to the Action's `settings` input. In agent mode the Action grants no file tools, so Read/Edit/Write are listed. The list covers what .claude/prompts/*.md asks for and nothing else; /bootstrap adds the dev-server, migrate, seed, and screenshot commands by name when they exist. Any change here is an always-read PR.",
+  "$comment": "Project settings for the owner's interactive sessions in a clone (/plan, /dispatch, /bootstrap, ordinary work). The implementing runs use .claude/run-settings.json via the Action's `settings` input, where the write-capable gh commands are denied; keep them out of a deny here, or the skills cannot run. Any change here is an always-read PR.",
   "permissions": {
     "allow": [
-      "Read",
-      "Glob",
-      "Grep",
-      "Edit",
-      "MultiEdit",
-      "Write",
       "Bash(git:*)",
-      "Bash(mkdir:*)",
       "Bash(npm ci)",
       "Bash(npm install:*)",
       "Bash(npm run lint:*)",
@@ -19,29 +12,31 @@
       "Bash(npm run test:coverage:*)",
       "Bash(npm run coverage:patch:*)",
       "Bash(npm run build:*)",
-      "Bash(npm run restore-config)",
-      "Bash(gh pr create:*)",
-      "Bash(gh pr comment:*)",
+      "Bash(gh --version)",
+      "Bash(gh auth status)",
+      "Bash(gh api user)",
+      "Bash(gh api repos/:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh variable get:*)",
+      "Bash(gh project:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(gh issue close:*)",
+      "Bash(gh issue comment:*)",
+      "Bash(gh pr list:*)",
       "Bash(gh pr view:*)",
       "Bash(gh pr diff:*)",
-      "Bash(gh issue view:*)",
-      "Bash(gh issue comment:*)"
+      "Bash(gh pr create:*)",
+      "Bash(gh pr checks:*)"
     ],
     "deny": [
-      "WebFetch",
-      "WebSearch",
       "Bash(gh pr merge:*)",
-      "Bash(gh pr review:*)",
-      "Bash(gh pr edit:*)",
-      "Bash(gh issue edit:*)",
-      "Bash(gh label:*)",
       "Bash(gh secret:*)",
-      "Bash(gh variable:*)",
-      "Bash(gh api:*)"
+      "Bash(gh variable set:*)",
+      "Bash(gh variable delete:*)"
     ]
   },
-  "includeCoAuthoredBy": false,
-  "env": {
-    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"
-  }
+  "includeCoAuthoredBy": false
 }

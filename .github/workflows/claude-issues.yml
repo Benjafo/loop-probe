@@ -123,7 +123,7 @@ jobs:
           prompt: ${{ steps.prompt.outputs.text }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
-          settings: .claude/settings.json
+          settings: .claude/run-settings.json
           base_branch: development
           bot_id: ${{ steps.bot.outputs.bot_id }}
           bot_name: ${{ steps.bot.outputs.bot_name }}
