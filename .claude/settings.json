@@ -38,6 +38,7 @@
       "Bash(gh api:*)"
     ]
   },
+  "includeCoAuthoredBy": false,
   "env": {
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"
   }
