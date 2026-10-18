@@ -103,7 +103,9 @@ jobs:
       # commits work read-only while the working tree stays on development.
       - name: Fetch the PR head commits
         if: steps.gate.outputs.go == 'true'
-        run: git fetch --no-tags origin "+refs/heads/${{ steps.gate.outputs.head }}:refs/remotes/origin/pr-head"
+        env:
+          HEAD_REF: ${{ steps.gate.outputs.head }}
+        run: git fetch --no-tags origin "+refs/heads/${HEAD_REF}:refs/remotes/origin/pr-head"
 
       - name: Resolve bot identity
         if: steps.gate.outputs.go == 'true'

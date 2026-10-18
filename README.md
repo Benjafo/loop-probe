@@ -10,7 +10,7 @@ Everything identical across projects lives here. The judgment calls (`docs/SPEC.
 |---|---|
 | `.github/workflows/claude-issues.yml` | `claude` label on an issue → implementing run → PR against `development` |
 | `.github/workflows/claude.yml` | `@claude …` comment on a PR → revision run on the PR's branch |
-| `.github/workflows/claude-review.yml` | Independent review on PR opened / ready, or `@claude review` |
+| `.github/workflows/claude-review.yml` | Independent review on PR opened / ready, or `@claude review`. Note: on `pull_request` events GitHub runs the workflow file from the PR head, so a PR that edits this file is reviewed by its own version of the gates and prompt; `REVIEW.md` and the tool list still come from `development`. That is why CI-config changes are always read by a human. |
 | `.github/workflows/ci.yml` | lint (test-integrity rules), typecheck, tests, patch coverage, build. Check name `ci`. |
 | `.github/workflows/codeql.yml` | CodeQL for javascript-typescript. Check name `CodeQL`. |
 | `.github/scripts/` | The router, prompt builder, and always() step the workflows call |
