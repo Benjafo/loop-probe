@@ -123,3 +123,14 @@ export function exclaim(text) {
   }
   return text.trim().replace(/!+$/, "") + "!";
 }
+
+/**
+ * @param {unknown} text
+ * @returns {string}
+ */
+export function reverseWords(text) {
+  if (typeof text !== "string" || text.trim() === "") {
+    throw new TypeError("text must be a non-empty string");
+  }
+  return text.trim().split(/\s+/).reverse().join(" ");
+}
