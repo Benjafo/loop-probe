@@ -58,3 +58,5 @@ The template ships `development` only. `setup.sh` creates `production` from it s
 | `LOOP_APP_ID` | secret | Your GitHub App's id |
 | `LOOP_APP_PRIVATE_KEY` | secret | Its private key (PEM) |
 | `LOOP_APP_SLUG` | variable | Its slug; the bot login is `<slug>[bot]` |
+
+Fork probe.
