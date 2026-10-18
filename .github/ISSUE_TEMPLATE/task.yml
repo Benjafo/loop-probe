@@ -4,7 +4,7 @@
 # labels, so risk is the `risk:high` label.
 name: Task
 description: A unit of work for the Issue-to-PR loop. One vertical slice, one PR.
-title: ""
+title: "Issue Template"
 labels: []
 body:
   - type: markdown
