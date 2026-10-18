@@ -78,11 +78,14 @@ jobs:
           [ "$CROSS" = "false" ] || { echo "fork PR: skip"; GO=false; }
           [ "$AUTHOR" != "dependabot" ] && [ "$AUTHOR" != "app/dependabot" ] || { echo "dependabot: skip"; GO=false; }
 
+          # One label name per line, then an exact-line grep: gh's --jq is gojq,
+          # whose index() on an array yields [] rather than null when there is
+          # no match, so a "not null" test reads as risk:high on every PR.
           RISK=false
-          jq -e '[.labels[].name] | index("risk:high")' pr.json >/dev/null && RISK=true
+          jq -r '.labels[].name' pr.json | grep -qx 'risk:high' && RISK=true
           ISSUE="$(jq -r .body pr.json | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)"
           if [ -n "$ISSUE" ]; then
-            gh issue view "$ISSUE" --json labels --jq '[.labels[].name] | index("risk:high")' | grep -qv null && RISK=true
+            gh issue view "$ISSUE" --json labels --jq '.labels[].name' | grep -qx 'risk:high' && RISK=true
           fi
           echo "go=$GO risk_high=$RISK issue=${ISSUE:-none} head=$HEAD"
           {
