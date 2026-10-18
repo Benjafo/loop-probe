@@ -19,6 +19,7 @@
       "Bash(npm run test:coverage:*)",
       "Bash(npm run coverage:patch:*)",
       "Bash(npm run build:*)",
+      "Bash(npm run restore-config)",
       "Bash(gh pr create:*)",
       "Bash(gh pr comment:*)",
       "Bash(gh pr view:*)",

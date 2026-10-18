@@ -1,6 +1,11 @@
 # Dependabot PRs target development, like every other change, and go through
 # CI there. They get no Claude review (the review workflow gates on actor):
 # a dependency bump is read by me.
+#
+# One grouped PR per ecosystem, so the template carries at most two Dependabot
+# branches at a time. Keep "Include all branches" off when creating a repo
+# from the template; a copied Dependabot branch blocks Dependabot in the new
+# repo from opening its own PR of that name.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -9,9 +14,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    open-pull-requests-limit: 1
     groups:
-      minor-and-patch:
-        update-types: [minor, patch]
+      npm-all:
+        patterns: ["*"]
     labels: [dependencies]
 
   - package-ecosystem: github-actions
@@ -20,4 +26,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    open-pull-requests-limit: 1
+    groups:
+      actions-all:
+        patterns: ["*"]
     labels: [dependencies]
