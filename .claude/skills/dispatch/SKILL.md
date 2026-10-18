@@ -58,8 +58,10 @@ Fetch once per issue:
 
 ```bash
 gh issue view N --json number,title,state,labels,blockedBy,url \
-  --jq '{number,title,state,labels:[.labels[].name],url,blockedBy:[.blockedBy[]? | {number,state}]}'
+  --jq '{number,title,state,labels:[.labels[].name],url,blockedBy:[((.blockedBy.nodes? // .blockedBy) // [])[] | {number,state}]}'
 ```
+
+(`blockedBy` is a plain array on gh 2.94–2.9x and `{nodes, totalCount}` from 2.102; the filter accepts both.)
 
 Skip and record the reason when **any** of these holds (check in this order, report the first):
 
